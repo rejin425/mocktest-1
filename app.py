@@ -56,6 +56,74 @@ def init_db():
 
 init_db()
 
+# ---------------- PDF FUNCTIONS ---------------- #
+
+def extract_text_from_pdf(filepath):
+    text_data = ""
+    with pdfplumber.open(filepath) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                text_data += text + "\n"
+    return text_data
+
+def parse_questions(text):
+    if "Answer Key" not in text:
+        return []
+
+    questions = []
+    answer_key = {}
+
+    parts = text.split("Answer Key")
+    question_part = parts[0]
+    answer_part = parts[1]
+
+    for line in answer_part.split("\n"):
+        line = line.strip()
+        if "." in line:
+            try:
+                num, ans = line.split(".", 1)
+                answer_key[int(num.strip())] = ans.strip()
+            except:
+                continue
+
+    lines = question_part.split("\n")
+    i = 0
+
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if line and line[0].isdigit() and "." in line:
+            question_text = line.split(".", 1)[1].strip()
+            options = []
+            i += 1
+
+            while i < len(lines) and len(options) < 4:
+                opt = lines[i].strip()
+                if opt.startswith(("A)", "B)", "C)", "D)")):
+                    options.append(opt[3:].strip())
+                i += 1
+
+            if len(options) == 4:
+                q_number = len(questions) + 1
+                correct_letter = answer_key.get(q_number)
+                correct_option = None
+
+                if correct_letter:
+                    index = ord(correct_letter) - ord('A')
+                    if 0 <= index < 4:
+                        correct_option = options[index]
+
+                questions.append({
+                    "question": question_text,
+                    "options": options,
+                    "answer": correct_option
+                })
+        else:
+            i += 1
+
+    return questions
+
 # ---------------- ADMIN LOGIN ---------------- #
 
 @app.route("/admin", methods=["GET", "POST"])
@@ -67,12 +135,12 @@ def admin_login():
         return "Invalid Login"
 
     return """
-    <h2>Admin Login</h2>
-    <form method="POST">
-        <input type="text" name="username" placeholder="Username"><br><br>
-        <input type="password" name="password" placeholder="Password"><br><br>
-        <button type="submit">Login</button>
-    </form>
+        <h2>Admin Login</h2>
+        <form method="POST">
+            <input type="text" name="username"><br><br>
+            <input type="password" name="password"><br><br>
+            <button type="submit">Login</button>
+        </form>
     """
 
 @app.route("/logout")
@@ -97,10 +165,8 @@ def home():
 def start_test(test_id):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-
     cursor.execute("SELECT * FROM questions WHERE test_id=?", (test_id,))
     questions = cursor.fetchall()
-
     conn.close()
 
     return render_template("mocktest.html",
@@ -115,49 +181,38 @@ def submit(test_id):
 
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-
     cursor.execute("SELECT * FROM questions WHERE test_id=?", (test_id,))
     questions = cursor.fetchall()
 
     score = 0
-    results = []
 
     for q in questions:
         qid = q[0]
-        question = q[2]
         correct = q[7]
         user_answer = request.form.get(str(qid))
 
         if user_answer == correct:
             score += 1
-            status = "Correct"
-        else:
-            status = "Wrong"
 
-        results.append({
-            "question": question,
-            "your_answer": user_answer,
-            "correct_answer": correct,
-            "status": status
-        })
+    total = len(questions)
 
     # ✅ SAVE RESULT
     cursor.execute("""
         INSERT INTO results (test_id, student_name, score, total)
         VALUES (?, ?, ?, ?)
-    """, (test_id, student_name, score, len(questions)))
+    """, (test_id, student_name, score, total))
 
     conn.commit()
     conn.close()
 
     return render_template("result.html",
+                           student_name=student_name,
                            score=score,
-                           total=len(questions),
-                           results=results)
+                           total=total)
 
 # ---------------- ADMIN RESULTS PAGE ---------------- #
 
-@app.route("/admin_results")
+@app.route("/admin/results")
 def admin_results():
     if not session.get("admin"):
         return "Unauthorized Access"
@@ -166,7 +221,7 @@ def admin_results():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT tests.name, results.student_name, results.score, results.total
+        SELECT results.student_name, tests.name, results.score, results.total
         FROM results
         JOIN tests ON results.test_id = tests.id
         ORDER BY results.id DESC
@@ -182,4 +237,5 @@ def admin_results():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
