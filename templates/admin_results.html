@@ -1,28 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin Results</title>
+    <title>Mock Test</title>
 </head>
 <body>
 
-<h2>Student Results</h2>
+<h2>Mock Test</h2>
 
-<table border="1" cellpadding="10">
-<tr>
-    <th>ID</th>
-    <th>Name</th>
-    <th>Score</th>
-</tr>
+<form method="POST" action="/submit/{{ test_id }}">
 
-{% for row in data %}
-<tr>
-    <td>{{ row[0] }}</td>
-    <td>{{ row[1] }}</td>
-    <td>{{ row[2] }}</td>
-</tr>
-{% endfor %}
+    <!-- Student Name -->
+    <label><b>Enter Your Name:</b></label><br>
+    <input type="text" name="student_name" placeholder="Enter Your Name" required>
+    <br><br>
 
-</table>
+    {% for q in questions %}
+        <div style="margin-bottom:20px;">
+            <p><b>{{ loop.index }}. {{ q[2] }}</b></p>
+
+            <input type="radio" name="{{ q[0] }}" value="{{ q[3] }}" required>
+            A) {{ q[3] }}<br>
+
+            <input type="radio" name="{{ q[0] }}" value="{{ q[4] }}">
+            B) {{ q[4] }}<br>
+
+            <input type="radio" name="{{ q[0] }}" value="{{ q[5] }}">
+            C) {{ q[5] }}<br>
+
+            <input type="radio" name="{{ q[0] }}" value="{{ q[6] }}">
+            D) {{ q[6] }}<br>
+        </div>
+    {% endfor %}
+
+    <button type="submit">Submit Test</button>
+
+</form>
 
 </body>
 </html>
