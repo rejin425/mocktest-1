@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, send_from_directory, session
+from flask import Flask, render_template, request, redirect, session
 import os
 import sqlite3
 import pdfplumber
@@ -7,11 +7,9 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey123"
 
 UPLOAD_FOLDER = "uploads"
-VIDEO_FOLDER = "videos"
 DATABASE = "database.db"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(VIDEO_FOLDER, exist_ok=True)
 
 # ---------------- DATABASE INIT ---------------- #
 
@@ -22,8 +20,7 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            video TEXT
+            name TEXT
         )
     """)
 
@@ -40,7 +37,6 @@ def init_db():
         )
     """)
 
-    # ✅ NEW RESULTS TABLE
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS results (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,20 +68,18 @@ def parse_questions(text):
         return []
 
     questions = []
-    answer_key = {}
-
     parts = text.split("Answer Key")
     question_part = parts[0]
     answer_part = parts[1]
 
+    answer_key = {}
     for line in answer_part.split("\n"):
-        line = line.strip()
         if "." in line:
             try:
                 num, ans = line.split(".", 1)
                 answer_key[int(num.strip())] = ans.strip()
             except:
-                continue
+                pass
 
     lines = question_part.split("\n")
     i = 0
@@ -105,19 +99,19 @@ def parse_questions(text):
                 i += 1
 
             if len(options) == 4:
-                q_number = len(questions) + 1
-                correct_letter = answer_key.get(q_number)
-                correct_option = None
+                q_num = len(questions) + 1
+                correct_letter = answer_key.get(q_num)
+                correct_answer = None
 
                 if correct_letter:
                     index = ord(correct_letter) - ord('A')
                     if 0 <= index < 4:
-                        correct_option = options[index]
+                        correct_answer = options[index]
 
                 questions.append({
                     "question": question_text,
                     "options": options,
-                    "answer": correct_option
+                    "answer": correct_answer
                 })
         else:
             i += 1
@@ -127,20 +121,20 @@ def parse_questions(text):
 # ---------------- ADMIN LOGIN ---------------- #
 
 @app.route("/admin", methods=["GET", "POST"])
-def admin_login():
+def admin():
     if request.method == "POST":
-        if request.form.get("username") == "admin" and request.form.get("password") == "1234":
+        if request.form["username"] == "admin" and request.form["password"] == "1234":
             session["admin"] = True
             return redirect("/")
         return "Invalid Login"
 
     return """
-        <h2>Admin Login</h2>
-        <form method="POST">
-            <input type="text" name="username"><br><br>
-            <input type="password" name="password"><br><br>
-            <button type="submit">Login</button>
-        </form>
+    <h2>Admin Login</h2>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Username"><br><br>
+        <input type="password" name="password" placeholder="Password"><br><br>
+        <button type="submit">Login</button>
+    </form>
     """
 
 @app.route("/logout")
@@ -159,6 +153,52 @@ def home():
     conn.close()
     return render_template("index.html", tests=tests)
 
+# ---------------- UPLOAD TEST ---------------- #
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    if not session.get("admin"):
+        return "Unauthorized Access"
+
+    pdf_file = request.files.get("pdf")
+    if not pdf_file:
+        return "No PDF Uploaded"
+
+    filepath = os.path.join(UPLOAD_FOLDER, pdf_file.filename)
+    pdf_file.save(filepath)
+
+    text = extract_text_from_pdf(filepath)
+    questions = parse_questions(text)
+
+    if not questions:
+        return "No questions found in PDF"
+
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    cursor.execute("INSERT INTO tests (name) VALUES (?)", (pdf_file.filename,))
+    test_id = cursor.lastrowid
+
+    for q in questions:
+        cursor.execute("""
+            INSERT INTO questions
+            (test_id, question, option_a, option_b, option_c, option_d, correct)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            test_id,
+            q["question"],
+            q["options"][0],
+            q["options"][1],
+            q["options"][2],
+            q["options"][3],
+            q["answer"]
+        ))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/")
+
 # ---------------- START TEST ---------------- #
 
 @app.route("/test/<int:test_id>")
@@ -173,7 +213,7 @@ def start_test(test_id):
                            questions=questions,
                            test_id=test_id)
 
-# ---------------- SUBMIT + SAVE SCORE ---------------- #
+# ---------------- SUBMIT TEST ---------------- #
 
 @app.route("/submit/<int:test_id>", methods=["POST"])
 def submit(test_id):
@@ -189,14 +229,12 @@ def submit(test_id):
     for q in questions:
         qid = q[0]
         correct = q[7]
-        user_answer = request.form.get(str(qid))
-
-        if user_answer == correct:
+        answer = request.form.get(str(qid))
+        if answer == correct:
             score += 1
 
     total = len(questions)
 
-    # ✅ SAVE RESULT
     cursor.execute("""
         INSERT INTO results (test_id, student_name, score, total)
         VALUES (?, ?, ?, ?)
@@ -210,7 +248,7 @@ def submit(test_id):
                            score=score,
                            total=total)
 
-# ---------------- ADMIN RESULTS PAGE ---------------- #
+# ---------------- ADMIN RESULTS ---------------- #
 
 @app.route("/admin/results")
 def admin_results():
@@ -237,5 +275,7 @@ def admin_results():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
+
 
 
