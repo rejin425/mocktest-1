@@ -1,47 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mock Test Platform</title>
+    <title>Mock Test Website</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .top-bar {
+            text-align: right;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            text-decoration: none;
+            color: white;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        .login-btn {
+            background-color: #007bff;
+        }
+
+        .logout-btn {
+            background-color: red;
+        }
+
+        .upload-box {
+            background: white;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        .test-box {
+            background: white;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 5px 10px;
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body>
 
-<h1>Mock Test Platform</h1>
+<div class="top-bar">
+    {% if session.get("admin") %}
+        <a href="/admin_results" class="btn login-btn">View Results</a>
+        <a href="/logout" class="btn logout-btn">Logout</a>
+    {% else %}
+        <a href="/admin" class="btn login-btn">Admin Login</a>
+    {% endif %}
+</div>
+
+<h2>Available Mock Tests</h2>
+
+<hr>
 
 <!-- ADMIN UPLOAD SECTION -->
-{% if session.get('admin') %}
-<hr>
-<h2>Upload New Mock Test</h2>
-<form action="/upload" method="POST" enctype="multipart/form-data">
-    <label>Upload PDF:</label><br>
-    <input type="file" name="pdf" required><br><br>
+{% if session.get("admin") %}
+<div class="upload-box">
+    <h3>Upload New Mock Test</h3>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <label>Upload PDF:</label><br>
+        <input type="file" name="pdf" required><br><br>
 
-    <label>Upload Video (Optional):</label><br>
-    <input type="file" name="video"><br><br>
+        <label>Upload Video (Optional):</label><br>
+        <input type="file" name="video"><br><br>
 
-    <button type="submit">Upload Test</button>
-</form>
-
-<br>
-<a href="/logout">Logout</a>
-<hr>
-{% else %}
-<a href="/admin">Admin Login</a>
-<hr>
+        <button type="submit">Upload Test</button>
+    </form>
+</div>
 {% endif %}
 
-<h2>Available Tests</h2>
-
+<!-- TEST LIST -->
 {% if tests %}
     {% for test in tests %}
-        <p>
-            {{ test[1] }}
-            <a href="/test/{{ test[0] }}">Start Test</a>
-        </p>
+        <div class="test-box">
+            <h4>{{ test[1] }}</h4>
+            <a href="/test/{{ test[0] }}">
+                <button>Start Test</button>
+            </a>
+        </div>
     {% endfor %}
 {% else %}
-    <p>No tests available.</p>
+    <p>No tests uploaded yet.</p>
 {% endif %}
 
 </body>
 </html>
+
 
