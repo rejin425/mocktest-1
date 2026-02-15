@@ -1,3 +1,5 @@
 Flask
 pdfplumber
 gunicorn
+psycopg2-binary
+
