@@ -1,32 +1,35 @@
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import Flask, render_template, request, redirect, session
 import os
-import sqlite3
+import psycopg2
 import pdfplumber
 
 app = Flask(__name__)
-app.secret_key = "ultra_secure_key_2026"
+app.secret_key = "super_secure_key_2026"
 
-UPLOAD_FOLDER = "uploads"
-DATABASE = "database.db"
+# ---------------- DATABASE CONNECTION ---------------- #
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# ---------------- DATABASE ---------------- #
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+# ---------------- CREATE TABLES ---------------- #
 
 def init_db():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-    cursor.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS tests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT
-        )
+        );
     """)
 
-    cursor.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             test_id INTEGER,
             question TEXT,
             option_a TEXT,
@@ -34,21 +37,22 @@ def init_db():
             option_c TEXT,
             option_d TEXT,
             correct TEXT
-        )
+        );
     """)
 
-    cursor.execute("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             test_id INTEGER,
             student_name TEXT,
             score INTEGER,
             total INTEGER,
             percentage REAL
-        )
+        );
     """)
 
     conn.commit()
+    cur.close()
     conn.close()
 
 init_db()
@@ -57,10 +61,11 @@ init_db()
 
 @app.route("/")
 def home():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tests")
-    tests = cursor.fetchall()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tests ORDER BY id DESC;")
+    tests = cur.fetchall()
+    cur.close()
     conn.close()
     return render_template("index.html", tests=tests)
 
@@ -73,7 +78,6 @@ def admin():
             session["admin"] = True
             return redirect("/")
         return "Invalid Login"
-
     return render_template("login.html")
 
 @app.route("/logout")
@@ -83,9 +87,9 @@ def logout():
 
 # ---------------- PDF PARSE ---------------- #
 
-def extract_text(filepath):
+def extract_text(file):
     text = ""
-    with pdfplumber.open(filepath) as pdf:
+    with pdfplumber.open(file) as pdf:
         for page in pdf.pages:
             t = page.extract_text()
             if t:
@@ -115,7 +119,6 @@ def simple_parse(text):
 
     while i < len(lines):
         line = lines[i].strip()
-
         if line and line[0].isdigit() and "." in line:
             question_text = line.split(".",1)[1].strip()
             opts = []
@@ -157,26 +160,23 @@ def upload():
     if not file:
         return "No file selected"
 
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
-
-    text = extract_text(filepath)
+    text = extract_text(file)
     questions = simple_parse(text)
 
     if not questions:
         return "PDF format not supported"
 
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-    cursor.execute("INSERT INTO tests (name) VALUES (?)", (file.filename,))
-    test_id = cursor.lastrowid
+    cur.execute("INSERT INTO tests (name) VALUES (%s) RETURNING id;", (file.filename,))
+    test_id = cur.fetchone()[0]
 
     for q in questions:
-        cursor.execute("""
+        cur.execute("""
             INSERT INTO questions
             (test_id, question, option_a, option_b, option_c, option_d, correct)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
         """, (
             test_id,
             q["question"],
@@ -188,6 +188,7 @@ def upload():
         ))
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return redirect("/")
@@ -196,10 +197,11 @@ def upload():
 
 @app.route("/test/<int:test_id>")
 def start_test(test_id):
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM questions WHERE test_id=?", (test_id,))
-    questions = cursor.fetchall()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM questions WHERE test_id=%s;", (test_id,))
+    questions = cur.fetchall()
+    cur.close()
     conn.close()
 
     return render_template("mocktest.html",
@@ -212,10 +214,10 @@ def start_test(test_id):
 def submit(test_id):
     student_name = request.form.get("student_name")
 
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM questions WHERE test_id=?", (test_id,))
-    questions = cursor.fetchall()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM questions WHERE test_id=%s;", (test_id,))
+    questions = cur.fetchall()
 
     score = 0
 
@@ -229,12 +231,13 @@ def submit(test_id):
     total = len(questions)
     percentage = round((score/total)*100,2) if total > 0 else 0
 
-    cursor.execute("""
+    cur.execute("""
         INSERT INTO results (test_id, student_name, score, total, percentage)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s);
     """, (test_id, student_name, score, total, percentage))
 
     conn.commit()
+    cur.close()
     conn.close()
 
     return render_template("result.html",
@@ -250,18 +253,19 @@ def admin_results():
     if not session.get("admin"):
         return "Unauthorized"
 
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-    cursor.execute("""
+    cur.execute("""
         SELECT results.student_name, tests.name,
                results.score, results.total, results.percentage
         FROM results
         JOIN tests ON results.test_id = tests.id
-        ORDER BY results.id DESC
+        ORDER BY results.id DESC;
     """)
 
-    data = cursor.fetchall()
+    data = cur.fetchall()
+    cur.close()
     conn.close()
 
     return render_template("admin_results.html", data=data)
@@ -271,6 +275,8 @@ def admin_results():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
+
 
 
 
