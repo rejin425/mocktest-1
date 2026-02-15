@@ -4,97 +4,75 @@
     <title>Mock Test Website</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: Arial;
+            background-color: #f2f2f2;
+            padding: 30px;
+        }
+        .box {
+            background: white;
             padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-
-        .top-bar {
-            text-align: right;
+        h1 {
+            text-align: center;
         }
-
-        .btn {
-            padding: 8px 15px;
+        a {
             text-decoration: none;
-            color: white;
-            border-radius: 5px;
-            margin-left: 5px;
+            color: blue;
         }
-
-        .login-btn {
-            background-color: #007bff;
-        }
-
-        .logout-btn {
-            background-color: red;
-        }
-
-        .upload-box {
-            background: white;
-            padding: 15px;
-            margin-top: 20px;
-            border-radius: 5px;
-        }
-
-        .test-box {
-            background: white;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
-        }
-
         button {
-            padding: 5px 10px;
-            margin-top: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-<div class="top-bar">
-    {% if session.get("admin") %}
-        <a href="/admin_results" class="btn login-btn">View Results</a>
-        <a href="/logout" class="btn logout-btn">Logout</a>
-    {% else %}
-        <a href="/admin" class="btn login-btn">Admin Login</a>
-    {% endif %}
-</div>
+<h1>📘 Mock Test Website</h1>
 
-<h2>Available Mock Tests</h2>
+<!-- ADMIN SECTION -->
+{% if session.get('admin') %}
+<div class="box">
+    <h2>Admin Panel</h2>
 
-<hr>
-
-<!-- ADMIN UPLOAD SECTION -->
-{% if session.get("admin") %}
-<div class="upload-box">
-    <h3>Upload New Mock Test</h3>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-        <label>Upload PDF:</label><br>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label>Select PDF:</label><br><br>
         <input type="file" name="pdf" required><br><br>
-
-        <label>Upload Video (Optional):</label><br>
-        <input type="file" name="video"><br><br>
 
         <button type="submit">Upload Test</button>
     </form>
+
+    <br>
+    <a href="/admin/results">📊 View Student Results</a><br><br>
+    <a href="/logout">Logout</a>
+</div>
+{% else %}
+<div class="box">
+    <a href="/admin">Admin Login</a>
 </div>
 {% endif %}
 
 <!-- TEST LIST -->
-{% if tests %}
-    {% for test in tests %}
-        <div class="test-box">
-            <h4>{{ test[1] }}</h4>
-            <a href="/test/{{ test[0] }}">
-                <button>Start Test</button>
-            </a>
-        </div>
-    {% endfor %}
-{% else %}
-    <p>No tests uploaded yet.</p>
-{% endif %}
+<div class="box">
+    <h2>Available Tests</h2>
+
+    {% if tests %}
+        <ul>
+        {% for test in tests %}
+            <li>
+                {{ test[1] }}
+                <a href="/test/{{ test[0] }}">
+                    <button>Start Test</button>
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No tests uploaded yet.</p>
+    {% endif %}
+</div>
 
 </body>
 </html>
-
-
