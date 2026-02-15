@@ -1,40 +1,93 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mock Test</title>
+    <title>Admin - Student Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .top-bar {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            text-decoration: none;
+            color: white;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        .home-btn {
+            background-color: green;
+        }
+
+        .logout-btn {
+            background-color: red;
+        }
+    </style>
 </head>
 <body>
 
-<h2>Mock Test</h2>
+<div class="top-bar">
+    <a href="/" class="btn home-btn">Home</a>
+    <a href="/logout" class="btn logout-btn">Logout</a>
+</div>
 
-<form method="POST" action="/submit/{{ test_id }}">
+<h2>All Student Results</h2>
 
-    <!-- Student Name -->
-    <label><b>Enter Your Name:</b></label><br>
-    <input type="text" name="student_name" placeholder="Enter Your Name" required>
-    <br><br>
+{% if data %}
+    <p><b>Total Attempts:</b> {{ data|length }}</p>
 
-    {% for q in questions %}
-        <div style="margin-bottom:20px;">
-            <p><b>{{ loop.index }}. {{ q[2] }}</b></p>
+    <table border="1">
+        <tr>
+            <th>Test Name</th>
+            <th>Student Name</th>
+            <th>Score</th>
+        </tr>
 
-            <input type="radio" name="{{ q[0] }}" value="{{ q[3] }}" required>
-            A) {{ q[3] }}<br>
+        {% for row in data %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }} / {{ row[3] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
 
-            <input type="radio" name="{{ q[0] }}" value="{{ q[4] }}">
-            B) {{ q[4] }}<br>
-
-            <input type="radio" name="{{ q[0] }}" value="{{ q[5] }}">
-            C) {{ q[5] }}<br>
-
-            <input type="radio" name="{{ q[0] }}" value="{{ q[6] }}">
-            D) {{ q[6] }}<br>
-        </div>
-    {% endfor %}
-
-    <button type="submit">Submit Test</button>
-
-</form>
+{% else %}
+    <p>No test attempts yet.</p>
+{% endif %}
 
 </body>
 </html>
+
