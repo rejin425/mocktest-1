@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mock Test Platform</title>
+</head>
+<body>
+
+<h1>Mock Test Platform</h1>
+
+<!-- ADMIN UPLOAD SECTION -->
+{% if session.get('admin') %}
+<hr>
+<h2>Upload New Mock Test</h2>
+<form action="/upload" method="POST" enctype="multipart/form-data">
+    <label>Upload PDF:</label><br>
+    <input type="file" name="pdf" required><br><br>
+
+    <label>Upload Video (Optional):</label><br>
+    <input type="file" name="video"><br><br>
+
+    <button type="submit">Upload Test</button>
+</form>
+
+<br>
+<a href="/logout">Logout</a>
+<hr>
+{% else %}
+<a href="/admin">Admin Login</a>
+<hr>
+{% endif %}
+
+<h2>Available Tests</h2>
+
+{% if tests %}
+    {% for test in tests %}
+        <p>
+            {{ test[1] }}
+            <a href="/test/{{ test[0] }}">Start Test</a>
+        </p>
+    {% endfor %}
+{% else %}
+    <p>No tests available.</p>
+{% endif %}
+
+</body>
+</html>
+

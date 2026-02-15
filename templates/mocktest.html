@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mock Test</title>
+</head>
+<body>
+
+<h2>Mock Test</h2>
+
+<!-- SHOW VIDEO IF EXISTS -->
+{% if video %}
+    <h3>Test Video</h3>
+    <video width="600" controls>
+        <source src="/videos/{{ video }}" type="video/mp4">
+        Your browser does not support video.
+    </video>
+    <hr>
+{% endif %}
+
+<form method="POST" action="/submit/{{ test_id }}">
+
+{% for q in questions %}
+    <p><strong>{{ loop.index }}. {{ q[2] }}</strong></p>
+
+    <input type="radio" name="{{ q[0] }}" value="{{ q[3] }}" required> {{ q[3] }}<br>
+    <input type="radio" name="{{ q[0] }}" value="{{ q[4] }}"> {{ q[4] }}<br>
+    <input type="radio" name="{{ q[0] }}" value="{{ q[5] }}"> {{ q[5] }}<br>
+    <input type="radio" name="{{ q[0] }}" value="{{ q[6] }}"> {{ q[6] }}<br>
+
+    <hr>
+{% endfor %}
+
+<button type="submit">Submit Test</button>
+
+</form>
+
+</body>
+</html>

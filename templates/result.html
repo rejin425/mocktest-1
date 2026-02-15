@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Score Sheet</title>
+</head>
+<body>
+
+<h2>Score Sheet</h2>
+
+<h3>Your Score: {{ score }} / {{ total }}</h3>
+
+<hr>
+
+{% for r in results %}
+    <p><strong>Question:</strong> {{ r.question }}</p>
+    <p>Your Answer: {{ r.your_answer }}</p>
+    <p>Correct Answer: {{ r.correct_answer }}</p>
+    <p>Status: 
+        {% if r.status == "Correct" %}
+            <span style="color:green;">Correct</span>
+        {% else %}
+            <span style="color:red;">Wrong</span>
+        {% endif %}
+    </p>
+    <hr>
+{% endfor %}
+
+<a href="/">Go Back Home</a>
+
+</body>
+</html>
